@@ -1,3 +1,8 @@
+from sqlalchemy import Column, Integer, String, Float, Enum, DateTime, ForeignKey
+from datetime import datetime
+from app.database import Base
+
+
 class PagoDB(Base):
     """
     Tabla de Pagos. Clave para HU-21 (inicio) y HU-26 (actualización atómica).

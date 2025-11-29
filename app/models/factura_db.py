@@ -1,3 +1,8 @@
+from sqlalchemy import Column, Integer, Float, String, Enum, DateTime, ForeignKey
+from datetime import datetime
+from app.database import Base
+
+
 class FacturaDB(Base):
     """
     Tabla de Facturas. Esencial para HU-22 (filtro 'Pendiente') y HU-21 (validación).

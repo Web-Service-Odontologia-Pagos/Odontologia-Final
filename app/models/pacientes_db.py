@@ -1,3 +1,7 @@
+from sqlalchemy import Column, Integer, String
+from app.database import Base
+
+
 class PacienteDB(Base):
     """
     Tabla de Pacientes. Necesaria para HU-22 (Consulta) y HU-23 (Notificación).
