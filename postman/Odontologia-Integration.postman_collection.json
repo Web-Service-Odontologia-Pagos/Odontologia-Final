@@ -1,0 +1,166 @@
+{
+  "info": {
+    "name": "Odontologia - Integration Tests",
+    "_postman_id": "d6b8f3e2-odontologia-integration",
+    "description": "Colección para probar el flujo: pacientes -> facturas -> pagos (init + webhook)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health - root",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create Paciente",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"nombre\": \"Test User\", \"email\": \"test@example.com\", \"telefono\": \"3001234567\"}"
+        },
+        "url": "{{baseUrl}}/pacientes/"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Created 201', function () { pm.response.to.have.status(201); });",
+              "var body = pm.response.json();",
+              "pm.test('Has id', function () { pm.expect(body).to.have.property('id'); });",
+              "pm.environment.set('pacienteId', body.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create Factura",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"monto_total\": 100.0, \"descripcion\": \"Tratamiento A\"}"
+        },
+        "url": "{{baseUrl}}/usuarios/{{pacienteId}}/facturas"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Created factura 201', function () { pm.response.to.have.status(201); });",
+              "var body = pm.response.json();",
+              "pm.test('Factura id present', function () { pm.expect(body).to.have.property('id'); });",
+              "pm.environment.set('facturaId', body.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Iniciar Pago",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"id_factura\": {{facturaId}}, \"monto_pagado\": 100.0, \"datos_tarjeta\": \"4111111111111111\", \"pin_seguridad\": \"123\"}"
+        },
+        "url": "{{baseUrl}}/IPago/datosP"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Pago iniciado 200', function () { pm.response.to.have.status(200); });",
+              "var body = pm.response.json();",
+              "pm.test('Tiene id_transaccion_banco', function () { pm.expect(body).to.have.property('id_transaccion_banco'); });",
+              "pm.environment.set('transaction', body.id_transaccion_banco);",
+              "// Guardar correlation id que devuelve el servidor (si existe)",
+              "var cid = pm.response.headers.get('X-Correlation-ID');",
+              "if (cid) { pm.environment.set('correlationId', cid); }",
+              "pm.test('Estado En Proceso', function () { pm.expect(body.estado_pago).to.be.oneOf(['En Proceso','Procesando','Pendiente']); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Simulate Bank Webhook - ValidacionP",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"estado\": \"Pagado\", \"id_transaccion\": \"{{transaction}}\"}"
+        },
+        "url": "{{baseUrl}}/ValidacionP"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Webhook accepted 200', function () { pm.response.to.have.status(200); });",
+              "var b = pm.response.json();",
+              "pm.test('Response has message or id', function () { pm.expect(b).to.be.an('object'); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Check Pending Facturas",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/usuarios/{{pacienteId}}/facturas"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Consulta facturas 200', function () { pm.response.to.have.status(200); });",
+              "var body = pm.response.json();",
+              "pm.test('No pending facturas', function () { pm.expect(body).to.be.an('array'); pm.expect(body.length).to.eql(0); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}
